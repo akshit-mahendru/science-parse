@@ -16,19 +16,37 @@ permissions:
 
 jobs:
   build:
-
-    runs-on: ubuntu-latest
-
+    working_directory: ~/science-parse
+    docker:
+      - image: openjdk:8
+    environment:
+      SBT_VERSION: 1.2.8
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up JDK 11
-      uses: actions/setup-java@v3
-      with:
-        java-version: '11'
-        distribution: 'temurin'
-        cache: 'sbt'
-    - name: Run tests
-      run: sbt test
-      # Optional: This step uploads information to the GitHub dependency graph and unblocking Dependabot alerts for the repository
-    - name: Upload dependency graph
-      uses: scalacenter/sbt-dependency-submission@ab086b50c947c9774b70f39fc7f6e20ca2706c91
+      - run: echo 'export ARTIFACT_BUILD=$CIRCLE_PROJECT_REPONAME-$CIRCLE_BUILD_NUM.zip' >> $BASH_ENV
+      - run:
+          name: Get sbt binary
+          command: |
+            apt update && apt install -y curl
+            curl -L -o sbt-$SBT_VERSION.deb https://dl.bintray.com/sbt/debian/sbt-$SBT_VERSION.deb
+            dpkg -i sbt-$SBT_VERSION.deb
+            rm sbt-$SBT_VERSION.deb
+            apt-get update && apt-get clean && apt-get autoclean
+      - checkout
+      - restore_cache:
+          # Read about caching dependencies: https://circleci.com/docs/2.0/caching/
+          key: sbt-cache
+      - run:
+          name: Clean package
+          command: cat /dev/null | sbt clean
+      - run:
+          name: Test package
+          command: cat /dev/null | sbt test
+      - store_artifacts: # for display in Artifacts: https://circleci.com/docs/2.0/artifacts/
+          path: target/universal/science-parse.zip
+          destination: science-parse
+      - save_cache:
+          key: sbt-cache
+          paths:
+            - "~/.ivy2/cache"
+            - "~/.sbt"
+            - "~/.m2"
